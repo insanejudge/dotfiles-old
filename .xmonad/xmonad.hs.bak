@@ -1,0 +1,9 @@
+import XMonad
+import XMonad.Config.Gnome
+
+--main = do
+--	xmonad $ defaultConfig
+--		{ terminal	= "urxvt"
+--		} 
+
+main = xmonad gnomeConfig
