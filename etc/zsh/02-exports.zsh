@@ -80,7 +80,7 @@ export CLIPBORED_DMENU_SELECT_BG='#292929'
 export CLIPBORED_DMENU_SELECT_FG='#1c78ef'
 #                                                                            }}}
 # mpd                                                                        {{{
-export MPD_HOST='192.168.1.128'
+export MPD_HOST='127.0.0.1'
 export MPD_PORT=6600
 export MPD_USER='scp1'
 if [ $HOST = "shiva" ]; then

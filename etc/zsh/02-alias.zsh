@@ -183,8 +183,8 @@ alias      wit='wminput -c buttons-term&'
 alias       fevil='find . -regextype posix-extended -regex'
 
 case $HOST in
-  'shiva'*)
-    host_res='3360x1050'
+  'antikythera'*)
+    host_res='2400x1920'
     ;;
   'preemptive'*)
     host_res='1440x900'
