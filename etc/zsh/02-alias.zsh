@@ -186,8 +186,8 @@ case $HOST in
   'shiva'*)
     host_res='3360x1050'
     ;;
-  'rambo'*)
-    host_res='1920x1080'
+  'preemptive'*)
+    host_res='1440x900'
     ;;
   'india'*)
     host_res='1360x1024'

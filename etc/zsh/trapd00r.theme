@@ -101,11 +101,10 @@ elif [ "$HOST" = "laleh" ]; then
   export PS1="%~
 %{$fg[cyan]%}%n%{$reset_color%}@%{$fg_bold[green]%}%m%{$fg_bold[yellow]%}>%{$reset_color%} %{$reset_color%}"
 
-elif [ "$HOST" = "rambo" ]; then
+elif [ "$HOST" = "preemptive" ]; then
   export PS1="%~
 %{$fg[blue]%}%n%{$reset_color%}@%{$fg_bold[yellow]%}%m%{$fg_bold[yellow]%}>%{$reset_color%} %{$reset_color%}"
-
-fi
+	fi
 
 
 #  vim: set ft=zsh sw=2 et tw=0:
