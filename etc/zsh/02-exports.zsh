@@ -25,6 +25,7 @@ export OREILLY_BOOKS_DATABASE="$XDG_DOCUMENTS_DIR/oreilly.db"
 export PATH="$( echo \
   $HOME/dev/utils:\
   ~/bin:\
+  ~/perl5/bin:\
   /bin:\
   /usr/bin:\
   /usr/local/bin:\

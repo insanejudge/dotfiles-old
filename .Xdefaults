@@ -29,6 +29,8 @@ URxvt*background: #261515
 URxvt*foreground: #FFFFFF
 URxvt*cursorColor: #E25454
 
+!URxvt.font: xft:Envy Code R:antialias=true:pixelsize=10
+!URxvt.boldFont: xft:Envy Code R:style=bold:antialias=true:pixelsize=10
 
-URxvt.font: xft:Envy Code R:antialias=true:pixelsize=10
-URxvt.boldFont: xft:Envy Code R:style=bold:antialias=true:pixelsize=10
+URxvt.font: neep-10
+URxvt.boldFont: neep-bold-10

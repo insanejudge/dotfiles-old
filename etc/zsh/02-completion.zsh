@@ -66,8 +66,6 @@ zstyle ':completion:*:(ssh|scp):*:hosts-ipaddr' ignored-patterns \
   '^<->.<->.<->.<->' '127.0.0.<->'
 
 zstyle ':completion:*:(ssh|scp):*:my-accounts' users-hosts \
-  'daniel@antikythera' \
-  'daniel@preemptive' \
   'daniel@alpha.mediatemple.net'
 #zstyle ':completion:*:(ssh|scp):*:hosts-domain' ignored-patterns \
 #  '<->.<->.<->.<->' '^*.*' '*@*'

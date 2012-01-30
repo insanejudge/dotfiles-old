@@ -189,6 +189,9 @@ case $HOST in
   'preemptive'*)
     host_res='1440x900'
     ;;
+  'reality'*)
+    host_res='1440x900'
+    ;;
   'india'*)
     host_res='1360x1024'
     ;;

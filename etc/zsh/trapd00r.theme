@@ -104,6 +104,10 @@ elif [ "$HOST" = "antikythera" ]; then
 elif [ "$HOST" = "preemptive" ]; then
   export PS1="%~
 %{$fg[blue]%}%n%{$reset_color%}@%{$fg_bold[yellow]%}%m%{$fg_bold[yellow]%}>%{$reset_color%} %{$reset_color%}"
+
+elif [ "$HOST" = "reality" ]; then
+  export PS1="%~
+%{$fg[blue]%}%n%{$reset_color%}@%{$fg_bold[yellow]%}%m%{$fg_bold[yellow]%}>%{$reset_color%} %{$reset_color%}"
 	fi
 
 
