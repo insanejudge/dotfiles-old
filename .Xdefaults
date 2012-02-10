@@ -1,36 +1,42 @@
 ! [ terminal colors ]
 !   black / dark gray
-URxvt*color0: #757575
-URxvt*color8: #B8B8B8
+URxvt*color0: #4D4D4D
+URxvt*color8: #9E9E9E
 !   red
-URxvt*color1: #FF5F5F
-URxvt*color9: #D78787
+URxvt*color1: #725631
+URxvt*color9: #AC885B
 !   green
-URxvt*color2: #DE8A36
-URxvt*color10: #FF9F6F
+URxvt*color2: #5F6C3F
+URxvt*color10: #8F9D6A
 !   yellow
-URxvt*color3: #D78787
-URxvt*color11: #FF5F5F
+URxvt*color3: #757575
+URxvt*color11: #B8B8B8
 !   blue
-URxvt*color4: #AF5FD7
-URxvt*color12: #DEA3E5
+URxvt*color4: #39598E
+URxvt*color12: #7587A6
 !   magenta
-URxvt*color5: #FF87D7
-URxvt*color13: #D7AFAF
+URxvt*color5: #713B71
+URxvt*color13: #9B859D
 !   cyan
-URxvt*color6: #DEA3E5
-URxvt*color14: #AF5FD7
+URxvt*color6: #404040
+URxvt*color14: #404040
 !   light gray / white
 URxvt*color7: #B8B8B8
 URxvt*color15: #757575
 
 ! [ urxvt ]
-URxvt*background: #261515
-URxvt*foreground: #FFFFFF
-URxvt*cursorColor: #E25454
+URxvt*background: #141414
+URxvt*foreground: #F8F8F8
+URxvt*cursorColor: #404040
+
+
+URxvt.perl-ext-common:  default,matcher
+#URxvt.perl-ext-common:  default,matcher,clipboard
+URxvt.urlLauncher:      /usr/bin/chromium-browser
+URxvt.matcher.button:   1 
 
 !URxvt.font: xft:Envy Code R:antialias=true:pixelsize=10
 !URxvt.boldFont: xft:Envy Code R:style=bold:antialias=true:pixelsize=10
 
-URxvt.font: neep-10
-URxvt.boldFont: neep-bold-10
+URxvt.font:		-*-neep-medium-*-semicondensed-*-10-*-*-*-*-*-*-*
+URxvt.boldFont:	-*-neep-medium-*-semicondensed-*-10-*-*-*-*-*-*-*
