@@ -1,0 +1,547 @@
+;;-------~---~----------~----------~----
+;;
+;; .---..---..-..-..-.-.-..---..-.-.-..-.-.-.
+;;  \ \ `| |'| || || | | || |-'| | | || | | |
+;; `---' `-' `----'`-'-'-'`-'  `-----'`-'-'-'
+;;
+;;-------~---~----------~----------~----
+;;
+;; + Software used ATOC:
+;; |-> sbcl-git    => 20110811
+;; |-> clx         => 0.7.4-1
+;; |-> cl-ppcre    => 2.0.3-2
+;; `-> stumpwm-git => 20110811
+;;
+;;-------~---~----------~----------~----
+;;
+;; MASSIVE THANKS
+;; to Milomouse, for his seriously complete
+;; configuration:
+;; http://dotshare.it/dots/49
+;;
+;; I've recycled quite a bit from there.
+;;
+;;-------~---~----------~----------~----
+
+(in-package :stumpwm)
+
+;;-------~---~----------~----------~----
+;; Modules
+;;---~----~-~-------------~---------~---
+
+;; Where is them?
+(set-contrib-dir "/home/daniel/.stump/contrib/")
+
+;; Can I haz?
+(load-module "window-tags")
+(load-module "frame-tags")
+
+;;-------~---~----------~----------~----
+;; Define Variables
+;;---~----~-~-------------~---------~---
+
+;; Turn of welcome message
+(setf *startup-message*
+      "Forget Crackers. Polly needs some CRACK! Give Polly some CRACK!")
+
+;; Directories
+(setf *home-dir* (make-pathname :directory (format nil "~A/.stump" (getenv "XDG_CONFIG_HOME")))
+      ; *data-dir* (merge-pathnames (make-pathname :directory
+      ;            '(:relative "conf" "storage")) *home-dir*)
+      ;*data-dir* (make-pathname :directory (format nil "~A/.stump/conf" (getenv "XDG_CONFIG_HOME")))
+      *data-dir* (make-pathname :directory (format nil "~A/.stump/conf" (getenv "XDG_CONFIG_HOME")))
+      *undo-data-dir* (make-pathname :directory "/dev/shm/.1009")
+      *scratchpad-group-name* ".scratchpad"
+      *debug-level* 1)
+
+;; Use URxvt as Terminal
+(defvar *terminal* "urxvt"
+  "Command to start a terminal.")
+
+(defvar *terminal-smallfont* "urxvt -fn -jmk-neep-medium-r-normal--10-80-75-75-c-50-iso8859-1"
+  "Command to start a terminal with small font.")
+
+;;-------~---~----------~----------~----
+;; Rewrite some commands
+;;-------~---~----------~----------~----
+
+;; reassign original commands to *-forget
+(defcommand quit-forget () () "Quit StumpWM without remembering current state."
+  (with-open-file (stream *debug-file* :direction :io :if-exists :supersede))
+  (cond ((find-group (current-screen) *scratchpad-group-name*)
+         (if (eq (current-group) (find-group (current-screen) *scratchpad-group-name*))
+             (gkill)
+           (progn
+             (gnext) (kill-group
+                      (find-group (current-screen) *scratchpad-group-name*)
+                      (current-group))))))
+  (throw :top-level :quit))
+
+(defcommand restart-soft-forget () () 
+  "Soft Restart StumpWM without remembering current state.
+The lisp process isn't restarted. Instead, control jumps
+to the very beginning of the stumpwm program. This
+differs from RESTART, which restarts the unix process.
+
+Since the process isn't restarted, existing customizations remain
+after the restart." 
+  (throw :top-level :restart))
+
+(defcommand loadrc-forget () () "Reload the @file{~/.stumpwmrc} file without remember current state."
+  (handler-case
+   (progn
+     (with-restarts-menu (load-rc-file nil)))
+   (error (c)
+          (message "^B^1*Error loading rc file:^n ~A" c))
+   (:no-error (&rest args)
+              (declare (ignore args))
+              (message "rc file loaded successfully."))))
+
+(defcommand loadrc () () "Reload the @file{~/.stumpwmrc} file while remembering current state."
+  (remember-all) (loadrc-forget))
+
+(defcommand restart-soft () ()
+  "Soft Restart StumpWM while remembering current state.
+The lisp process isn't restarted. Instead, control jumps
+to the very beginning of the stumpwm program. This
+differs from RESTART, which restarts the unix process.
+
+Since the process isn't restarted, existing customizations remain
+after the restart." 
+  (remember-all) (restart-soft-forget))
+
+(defcommand-alias restart restart-soft)
+
+(defcommand quit () ()
+  "Quit StumpWM while remembering current state."
+  (cond ((find-group (current-screen) *scratchpad-group-name*)
+         (if (eq (current-group) (find-group (current-screen) *scratchpad-group-name*))
+             (gkill)
+           (progn
+             (gnext) (kill-group
+                      (find-group (current-screen) *scratchpad-group-name*)
+                      (current-group))))))
+  (remember-all) (quit-forget))
+
+;;-------~---~----------~----------~----
+;; Dumping
+;;-------~---~----------~----------~----
+
+(defun remember-all () ()
+"Similiar to remember-group except all information is dumped, useful
+for next startup or recalling all undo actions."
+  (dump-to-datadir "rules") (dump-to-datadir "desktop"))
+
+;; dump [current]-group (for current-screen), [current]-screen, desktop or window-placement-rules
+;; to a dynamically named file in user defined *data-dir*.
+(defcommand dump-to-datadir (expr) (:rest)
+  "Dump group (from current-screen), screen (current-screen), desktop or rules to file in data-dir.
+Just specify what you want to dump and this will dynamically create and name file accordingly."
+  (cond ((string-equal expr 'group)
+         (let* ((o (make-pathname :name (format nil "screen_~{~A~}_group_~{~A~}"
+                                                (list (char (getenv "DISPLAY") 1)) (list (group-name (current-group))))
+                                  :type "lisp" :defaults *data-dir*)))
+           (dump-group-to-file o) (message "~A dumped" expr)))
+        ((string-equal expr 'screen)
+         (let* ((o (make-pathname :name (format nil "screen_~{~A~}" (list (char (getenv "DISPLAY") 1)))
+                                  :type "lisp" :defaults *data-dir*)))
+           (dump-screen-to-file o) (message "~A dumped" expr)))
+        ((string-equal expr 'rules)
+         (let* ((o (make-pathname :name "tile-rules" :type "lisp" :defaults *data-dir*)))
+           (dump-window-placement-rules o) (message "~A dumped" expr)))
+        ((string-equal expr 'desktop)
+         (let* ((o (make-pathname :name "desktop" :type "lisp" :defaults *data-dir*)))
+           (dump-desktop-to-file o) (message "~A dumped" expr)))
+        (t (message "dont know how to dump ~a" expr))))
+
+;; dump to file, which is silent, but with more informative prompts.
+(defcommand dump-group-to-file (file) ((:rest "group to file: "))
+  "Dumps the frames of the current group of the current screen to the named file."
+  (dump-to-file (dump-group (current-group)) file))
+(defcommand dump-screen-to-file (file) ((:rest "screen to file: "))
+  "Dumps the frames of all groups of the current screen to the named file."
+  (dump-to-file (dump-screen (current-screen)) file))
+(defcommand dump-desktop-to-file (file) ((:rest "desktop to file: "))
+  "Dumps the frames of all groups of all screens to the named file."
+  (dump-to-file (dump-desktop) file))
+
+;; Run or raise Luakit
+(defcommand luakit () ()
+  "Run-or-Raise Luakit"
+  (run-or-raise "/home/crshd/bin/lightgtk luakit" '(:class "luakit")))
+
+;; Run or raise Gvim
+(defcommand gvim () ()
+  "Run-or-Raise Gvim"
+  (run-or-raise "gvim" '(:class "Gvim")))
+
+;;-------~---~----------~----------~----
+;; Groups
+;;-------~---~----------~----------~----
+
+(defun remember-group (&optional (group (current-group))) ()
+"Remember current group information before calling another command or
+function. Combined with 'undo' command this allows for toggling between
+the two undo states."
+  (if (ensure-directories-exist *undo-data-dir*)
+    (when group
+      (dump-group-to-file
+        (make-pathname :name (format nil "screen_~{~A~}_group_~{~A~}"
+        (list (char (getenv "DISPLAY") 1)) (list (group-name (current-group))))
+        :type "lisp" :defaults *undo-data-dir*)))))
+
+(defun fmt-group-status (group)
+  (let ((screen (group-screen group)))
+    (cond ((eq group (screen-current-group screen))
+           #\*)
+          ((and (typep (second (screen-groups screen)) 'group)
+                (eq group (second (screen-groups screen))))
+           #\+)
+          (t #\-))))
+
+;; create given groups while keeping focus on current.
+(defmacro make-groups-bg (&rest names)
+  (let ((ns (mapcar #'(lambda (n) (concatenate 'string "gnewbg " n)) names)))
+    `(run-commands ,@ns)))
+
+
+;;-------~---~----------~----------~----
+;; Frames
+;;-------~---~----------~----------~----
+
+(defun focus-frame (group f)
+"Focus frame but do not show-frame-indicator in certain cases."
+  (let ((w (frame-window f))
+        (last (tile-group-current-frame group))
+        (show-indicator nil))
+    (setf (tile-group-current-frame group) f)
+    (unless (eq f last)
+      (setf (tile-group-last-frame group) last)
+      (run-hook-with-args *focus-frame-hook* f last)
+      (setf show-indicator t))
+    (if w (focus-window w) (no-focus group (frame-window last)))
+    (if show-indicator (show-frame-outline group))))
+
+;; Toggle horizontal/vertical split
+(defcommand toggle-split () ()
+  (let* ((group (current-group))
+         (cur-frame (tile-group-current-frame group))
+         (frames (group-frames group)))
+    (if (eq (length frames) 2)
+        (progn (if (or (neighbour :left cur-frame frames)
+                       (neighbour :right cur-frame frames))
+                   (progn
+                     (only)
+                     (vsplit))
+                 (progn
+                   (only)
+                   (hsplit))))
+      (message "Works only with 2 frames"))))
+
+;;-------~---~----------~----------~----
+;; Windows
+;;-------~---~----------~----------~----
+
+(defun shift-windows-forward (frames win)
+  "Rotate Windows"
+  (when frames
+          (let ((frame (car frames)))
+                 (shift-windows-forward (cdr frames)
+                                        (frame-window frame))
+                 (when win
+                   (pull-window win frame)))))
+
+;; Window with layout
+(defmacro program-with-layout (name &key (command (string-downcase (string name)))
+                              (props `'(:class ,(string-capitalize command))))
+    `(defcommand ,name () ()
+                 (gnew ,command)
+                 (restore-from-file ,(concat "/home/daniel/.stump/"
+                                             command "-layout"))
+                 (restore-window-placement-rules ,(concat "/home/daniel/.stump/"
+                                                          command "-rules"))
+                 (run-or-raise ,command ,props)
+                 (place-existing-windows))) ; needed if the command has already been run
+
+;; Swap Windows
+;; Only works between two different groups
+(defvar *swap-windows* NIL)
+(defcommand swap-windows () ()
+  (if *swap-windows*
+              (progn (master-swap 0) (setf *swap-windows* NIL))
+              (progn (setf *swap-windows* t) (master-make))))
+
+;; designate master window/frame (should probably use current frame number, but less dynamic?)
+(defcommand (master-make tile-group) () () "Designate current window as Master."
+  (renumber 0) (repack-window-numbers) (remember-group))
+(defcommand (master-focus tile-group) () () "Focus on designated Master window." (select-window-by-number 0))
+
+;; swap current window with master (should be 0 (from master-make)) and desginate it as the new master.
+(defcommand (master-swap tile-group) (num &optional (group (current-group))) ((:window-number t))
+  "If current window is not Master and Master exists, swap current
+            window with Master and designate this as the new Master."
+  (labels ((match (win)
+                  (= (window-number win) num)))
+    (let* ((win (find-if #'match (group-windows group))))
+      (when (and win group) (exchange-windows (current-window) win) (master-make)))))
+
+(defcommand rotate-windows () ()
+  (let* ((frames (group-frames (current-group)))
+         (win (frame-window (car (last frames)))))
+    (shift-windows-forward frames win)))
+
+;;-------~---~----------~----------~----
+;; Modeline
+;;---~----~-~-------------~---------~---
+; 
+; (setf *screen-mode-line-format*
+;     (list "%g | "
+;         '(:eval (run-shell-command "date" t))))
+; 
+; ;; Position
+; (setf *mode-line-position* :bottom)
+
+;;-------~---~----------~----------~----
+;; Appearance
+;;---~----~-~-------------~---------~---
+
+;; Font
+(set-font "-*-neep-medium-*-semicondensed-*-11-*-*-*-*-*-*-*")
+
+;; The Bar
+(set-fg-color "oldlace")
+(set-bg-color "gray8")
+(set-border-color "oldlace")
+
+(setf *message-window-padding* 5)
+
+;; Modeline
+(setf *mode-line-foreground-color* "oldlace"
+      *mode-line-background-color* "dimgray"
+      *mode-line-border-color*     "oldlace")
+
+;; Borders
+(setf *maxsize-border-width*   2
+      *transient-border-width* 2
+      *normal-border-width*    2
+      *window-border-style*    :thin)
+
+(set-focus-color   "lightskyblue4")
+(set-unfocus-color "gray6")
+(set-win-bg-color  "gray8")
+
+
+;;-------~---~----------~----------~----
+;; Sounds
+;;---~----~-~-------------~---------~---
+
+; (defun place-window-sound (w g f)
+;   (declare (ignore w f))
+;   (unless (eq (current-group) g)
+;     (run-shell-command "exec mplayer -volume 50 /home/crshd/.config/stumpwm/sounds/beep.ogg")))
+; 
+; (defun new-window-sound (w)
+;   (run-shell-command "exec mplayer -volume 50 /home/crshd/.config/stumpwm/sounds/beep.ogg"))
+; 
+; (defun destroy-window-sound (w)
+;   (run-shell-command "exec mplayer -volume 50 /home/crshd/.config/stumpwm/sounds/beep.ogg"))
+; 
+; (defmacro replace-hook (hook fn)
+;   `(remove-hook, hook, fn)
+;   `(add-hook, hook, fn))
+; 
+; (replace-hook *new-window-hook* 'new-window-sound)
+; (replace-hook *destroy-window-hook* 'destroy-window-sound)
+; (add-hook *place-window-hook* 'place-window-sound)
+
+;;-------~---~----------~----------~----
+;; Keyboard & Mouse
+;;---~----~-~-------------~---------~---
+
+(set-prefix-key (kbd "s-,"))
+
+;; Groups
+(dotimes (i 9)
+  (define-key *top-map* (kbd (format nil "s-~A" (1+ i)))
+    (format nil "gselect ~A" (1+ i)))
+  (define-key *top-map* (kbd (format nil "s-M-~A" (1+ i)))
+    (format nil "gmove ~A" (1+ i))))
+
+;; Frames
+(loop for (vi-key name) in '(("k" "up")
+                             ("j" "down")
+                             ("h" "left")
+                             ("l" "right"))
+      do (let ((key-combo (format nil "s-~A" vi-key))
+               (shifted-key-combo (format nil "s-~A" (string-upcase vi-key))))
+           (define-key *top-map* (kbd key-combo)
+             (format nil "move-focus ~A" name))
+           (define-key *top-map* (kbd shifted-key-combo)
+             (format nil "move-window ~A" name))))
+
+;; Top-map
+(define-key *top-map* (kbd "C-q")        "delete")
+(define-key *top-map* (kbd "s-r")        "restart-soft")
+(define-key *top-map* (kbd "s-RET")      (format nil "exec ~A" *terminal*))
+(define-key *top-map* (kbd "Print")      (format nil "exec ~A/bin/zenscrupload"    (getenv "HOME")))
+(define-key *top-map* (kbd "s-Print")    (format nil "exec ~A/bin/zenscrupload -s" (getenv "HOME")))
+
+;; Multimedia Keys
+(define-key *top-map* (kbd "XF86AudioPlay")        "exec mpc toggle")
+(define-key *top-map* (kbd "XF86AudioNext")        "exec mpc next")
+(define-key *top-map* (kbd "XF86AudioPrev")        "exec mpc prev")
+(define-key *top-map* (kbd "XF86AudioStop")        "exec mpc stop")
+(define-key *top-map* (kbd "XF86AudioLowerVolume") (format nil "exec ~A/bin/volume decrease" (getenv "HOME")))
+(define-key *top-map* (kbd "XF86AudioRaiseVolume") (format nil "exec ~A/bin/volume increase" (getenv "HOME")))
+(define-key *top-map* (kbd "XF86AudioMute")        (format nil "exec ~A/bin/volume -t"   (getenv "HOME")))
+(define-key *top-map* (kbd "XF86AudioMedia")       (format nil "exec ~A/bin/mpm"         (getenv "HOME")))
+
+
+;; Paste X selection
+(defcommand paste-x-selection () (:rest)
+  "Universal rat-less X paste."
+  (let ((cmd (concatenate 'string "insert " (get-x-selection))))
+     (eval-command cmd)))
+(define-key *top-map* (kbd "Insert")     "paste-x-selection")
+
+(defvar *window-map* nil
+  "Keymap for doing stuffs to windows")
+(setf *window-map*
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "d")   "vsplit")
+        (define-key m (kbd "D")   "hsplit")
+        (define-key m (kbd "r")   "remove")
+        (define-key m (kbd "s")   "iresize")
+        (define-key m (kbd "y")   "toggle-split")
+        (define-key m (kbd "a")   "swap-windows")
+        (define-key m (kbd "m")   "pull-hidden-next")
+        (define-key m (kbd "y")   "rotate-windows")
+        m))
+(define-key *top-map* (kbd "s-s") '*window-map*)
+
+(defvar *group-map* nil
+  "Keymap for doing stuffs to groups")
+(setf *group-map*
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "n")   "gnew")
+        (define-key m (kbd "f")   "gnew-float")
+        (define-key m (kbd "N")   "gnewbg")
+        (define-key m (kbd "F")   "gnewbg-float")
+        (define-key m (kbd "k")   "gkill")
+        (define-key m (kbd "m")   "gmove")
+        m))
+(define-key *top-map* (kbd "s-g") '*group-map*)
+
+;; Application Launchers
+(defvar *launch-map* nil
+  "Keymap for launching stuffs")
+(setf *launch-map*
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "v")   "exec emacsclient -c -n ~")
+        (define-key m (kbd "b")   "luakit")
+        (define-key m (kbd "g")   "gimp")
+        (define-key m (kbd "p")   (format nil "exec ~A/bin/dmount"  (getenv "HOME")))
+        (define-key m (kbd "m")   (format nil "exec ~A -e mutt"     *terminal*))
+        (define-key m (kbd "n")   (format nil "exec ~A -e quiyo"    *terminal-smallfont*))
+        (define-key m (kbd "x")   (format nil "exec ~A -e stumpish" *terminal-smallfont*))
+        (define-key m (kbd "SPC") "exec dmenu_run")
+        m))
+(define-key *top-map* (kbd "s-SPC") '*launch-map*)
+
+;; Screen Locking
+(defvar *lock-map* nil
+  "Keymap for Screen locking etc")
+(setf *lock-map*
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "l") "exec xscreensaver-command -activate")
+        m))
+(define-key *top-map* (kbd "C-s-l") '*lock-map*)
+
+;; tmux
+(defvar *tmux-map* nil
+  "Keymap for tmux sessions")
+(setf *tmux-map*
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "i")   (format nil "exec ~A -e zsh ~A/.tmuxinator/irc.tmux"   *terminal* (getenv "HOME")))
+        (define-key m (kbd "r")   (format nil "exec ~A -e zsh ~A/.tmuxinator/rails.tmux" *terminal* (getenv "HOME")))
+        (define-key m (kbd "t")   (format nil "exec ~A -e zsh ~A/.tmuxinator/tmux.tmux"  *terminal* (getenv "HOME")))
+        m))
+(undefine-key *top-map* (kbd "s-t"))
+(define-key *top-map* (kbd "s-t") '*tmux-map*)
+
+;;-------~---~----------~----------~----
+;; Web search 
+;;---~----~-~-------------~---------~---
+
+(defmacro make-web-jump (name url-prefix)
+  `(defcommand ,name (search)
+     ((:rest ,(concatenate 'string (symbol-name name) ": ")))
+     (run-shell-command (format nil "/usr/bin/chromium-browser '~A'"
+                                (concat ,url-prefix (substitute #\+ #\Space search))))))
+
+(make-web-jump imdb      "http://www.imdb.com/find?q=")
+(make-web-jump google    "http://www.google.com/search?q=")
+(make-web-jump wikipedia "http://en.wikipedia.org/wiki/Special:Search?fulltext=Search&search=")
+(make-web-jump youtube   "http://youtube.com/results?search_query=")
+(make-web-jump bbs       "http://bbs.archlinux.org/search.php?action=search&show_as=topics&sort_dir=DESC&keywords=")
+(make-web-jump bbsa      "http://bbs.archlinux.org/search.php?action=search&show_as=topics&sort_dir=DESC&author=")
+(make-web-jump awiki     "https://wiki.archlinux.org/index.php?title=Special%%3ASearch&search=")
+(make-web-jump pkgs      "http://www.archlinux.org/packages/?q=")
+(make-web-jump aur       "http://aur.archlinux.org/packages.php?K=")
+(make-web-jump last.fm   "http://www.last.fm/search?q=")
+
+
+(defvar *query-map* nil
+  "Keymap for searching the webs")
+(setf *query-map*
+      (let ((m (make-sparse-keymap)))
+        (define-key m (kbd "i") "imdb")
+        (define-key m (kbd "g") "google")
+        (define-key m (kbd "w") "wikipedia")
+        (define-key m (kbd "y") "youtube")
+        (define-key m (kbd "b") "bbs")
+        (define-key m (kbd "t") "bbsa")
+        (define-key m (kbd "a") "awiki")
+        (define-key m (kbd "p") "pkgs")
+        (define-key m (kbd "u") "aur")
+        (define-key m (kbd "l") "last.fm")
+        m))
+(define-key *top-map* (kbd "s-w") '*query-map*)
+
+;; Focus follows Mouse
+(setq *mouse-focus-policy* :click)
+
+;;-------~---~----------~----------~----
+;; Startup
+;;---~----~-~-------------~---------~---
+
+;; redefine run-shell-command for 'zsh', change :shell "", and fix a typo.
+(defcommand run-shell-command (cmd &optional collect-output-p)
+  ((:shell "execute: "))
+  "Run the specified shell command. If @var{collect-output-p} is @code{T}
+then run the command synchronously and collect the output."
+  (if collect-output-p
+    (run-prog-collect-output *shell-program* "-c" cmd)
+    (run-prog *shell-program* :args (list "-c" cmd) :wait nil)))
+(setf *shell-program* (getenv "SHELL"))
+(defcommand-alias exec run-shell-command)
+
+;; restore data from previous exit (state StumpWM was last using),
+(clear-window-placement-rules)
+(setf (group-name (first (screen-groups (current-screen)))) "Main")
+(make-groups-bg "Web")
+(if (probe-file (data-dir-file "desktop.lisp"))
+    (restore-from-file (data-dir-file "desktop.lisp")))
+(restore-window-placement-rules (data-dir-file "tile-rules.lisp"))
+(make-groups-bg "Term")
+(cond ((string-equal (group-name (current-group)) *scratchpad-group-name*) (gother)))
+
+;; Run These
+(run-shell-command "xsetroot -cursor_name left_ptr -bg '#303030' -fg '#151515' -mod 2 2")
+(run-shell-command "killall dzen2")
+(run-shell-command
+ (format nil "~A/.stump/dzen/stuzen.rb | dzen2 -ta l -fn '-*-neep-medium-*-semicondensed-*-10-*-*-*-*-*-*-*' -h 16 -dock &"
+         (getenv "XDG_CONFIG_HOME")))
+(run-shell-command "xscreensaver &")
+
+;; vim: set ft=lisp ts=4 sw=4 sts=4:
